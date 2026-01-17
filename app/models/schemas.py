@@ -28,6 +28,8 @@ class BubbleNoteCreate(BaseModel):
     # 笔记状态 (可选, 默认为公开)
     status: int = Field(1, description="笔记状态 (1-公开/2-私有)")
 
+    note_type: Optional[int] = Field(3, description="笔记类型 (1-图文/2-纯文本/3-对话)")
+
     # note_id 可选 (如果存在则为更新模式)
     note_id: Optional[int] = Field(None, description="笔记 ID (更新模式时必填)")
 
@@ -358,3 +360,55 @@ class GeniusLociRecordResponse(BaseModel):
                 "create_time": "2025-01-17T12:00:00"
             }
         }
+
+# ========================================
+# AI 总结查询请求/响应模型
+# ========================================
+
+class GetAISummaryRequest(BaseModel):
+    """获取笔记 AI 总结请求模型"""
+
+    note_id: int = Field(..., description="笔记 ID (bubble_note.id)")
+    user_id: int = Field(..., description="用户 ID（用于权限验证）")
+
+    @validator('note_id')
+    def validate_note_id(cls, v):
+        """校验 note_id"""
+        if v <= 0:
+            raise ValueError('笔记 ID 必须为正整数')
+        return v
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "note_id": 123,
+                "user_id": 1
+            }
+        }
+
+
+class AISummaryResponse(BaseModel):
+    """AI 总结响应模型"""
+
+    code: int = Field(200, description="状态码 (200-成功/202-处理中/404-未找到)")
+    message: str = Field("success", description="响应消息")
+    data: Optional[dict] = Field(None, description="总结数据")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "code": 200,
+                "message": "success",
+                "data": {
+                    "note_id": 123,
+                    "ai_result": {
+                        "summary": "用户表达了对天气的喜悦，地灵回应以温暖的问候...",
+                        "turns": 5,
+                        "session_id": "uuid-string"
+                    },
+                    "process_time": "2025-01-17T12:00:00",
+                    "model_version": "gpt-4"
+                }
+            }
+        }
+

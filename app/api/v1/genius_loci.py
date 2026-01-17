@@ -15,13 +15,16 @@ from pydantic import BaseModel, Field
 from app.models.schemas import (
     GeniusLociChatRequest,
     GeniusLociChatResponse,
-    ApiResponse
+    ApiResponse,
+    GetAISummaryRequest,
+    AISummaryResponse
 )
 from app.services.genius_loci_service import (
     genius_loci_chat_stream,
     session_manager,
     archive_conversation
 )
+from app.core.database import get_ai_summary_by_bubble_id
 
 logger = logging.getLogger(__name__)
 
@@ -345,3 +348,126 @@ async def get_session_status(session_id: str):
     except Exception as e:
         logger.error(f"查询会话状态异常: {e}")
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
+
+
+# ========================================
+# AI 总结查询端点
+# ========================================
+
+@router.post("/ai-summary", response_model=AISummaryResponse)
+async def get_ai_summary(request: GetAISummaryRequest):
+    """
+    获取笔记的 AI 总结
+
+    功能：根据 note_id（bubble_id）查询对应的 AI 总结结果
+
+    业务逻辑：
+    1. 在 genius_loci_record 表中查找 bubble_id = note_id 的记录
+    2. 筛选 ai_process_type = 5（对话总结）的记录
+    3. 提取 ai_result 字段（JSON 格式，包含 summary, turns, session_id）
+
+    异常处理：
+    - 200: 成功返回 AI 总结
+    - 202: AI 总结正在生成中（ai_result 为空）
+    - 404: 未找到对应记录
+
+    请求示例：
+    ```json
+    {
+        "note_id": 123,
+        "user_id": 1
+    }
+    ```
+
+    响应示例（成功）：
+    ```json
+    {
+        "code": 200,
+        "message": "success",
+        "data": {
+            "note_id": 123,
+            "ai_result": {
+                "summary": "用户表达了对天气的喜悦...",
+                "turns": 5,
+                "session_id": "uuid-string"
+            },
+            "process_time": "2025-01-17T12:00:00",
+            "model_version": "gpt-4"
+        }
+    }
+    ```
+
+    响应示例（处理中）：
+    ```json
+    {
+        "code": 202,
+        "message": "AI 总结正在生成中，请稍后查询",
+        "data": {
+            "note_id": 123,
+            "status": "processing"
+        }
+    }
+    ```
+    """
+    try:
+        logger.info(f"查询 AI 总结: note_id={request.note_id}, user_id={request.user_id}")
+
+        # 查询 AI 总结记录
+        record = await get_ai_summary_by_bubble_id(
+            bubble_id=request.note_id,
+            user_id=request.user_id  # 进行权限验证
+        )
+
+        if not record:
+            # 未找到记录
+            return AISummaryResponse(
+                code=404,
+                message="未找到 AI 总结记录，该笔记可能尚未归档",
+                data={
+                    "note_id": request.note_id,
+                    "hint": "请先结束会话以触发 AI 总结"
+                }
+            )
+
+        # 检查 ai_result 是否为空
+        ai_result = record.get("ai_result")
+
+        if not ai_result or not ai_result.strip():
+            # AI 总结正在生成中
+            return AISummaryResponse(
+                code=202,
+                message="AI 总结正在生成中，请稍后查询",
+                data={
+                    "note_id": request.note_id,
+                    "status": "processing",
+                    "record_id": record.get("id")
+                }
+            )
+
+        # 解析 ai_result（应该是 JSON 格式）
+        try:
+            import json
+            ai_result_json = json.loads(ai_result)
+        except:
+            # 如果不是 JSON 格式，直接返回字符串
+            ai_result_json = {"raw": ai_result}
+
+        # 成功返回
+        return AISummaryResponse(
+            code=200,
+            message="success",
+            data={
+                "note_id": request.note_id,
+                "ai_result": ai_result_json,
+                "process_time": record.get("process_time"),
+                "model_version": record.get("model_version"),
+                "record_id": record.get("id")
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"查询 AI 总结异常: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"查询失败: {str(e)}"
+        )

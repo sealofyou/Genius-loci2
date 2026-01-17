@@ -353,7 +353,8 @@ async def genius_loci_chat_stream(
                     content=message,  # 用户消息作为内容
                     gps_longitude=gps_longitude,
                     gps_latitude=gps_latitude,
-                    status=3  # 对话
+                    note_type=3,  # 对话
+                    status=1
                 )
 
                 # 调用服务层处理（会自动进行情感识别）
@@ -426,67 +427,67 @@ async def genius_loci_chat_stream(
                 except:
                     content_parts.append(f"\n【此地记忆】{memory_result.get('ai_result', '')}")
 
-            # 即使没有任何额外信息，也要创建气泡（用户至少输入了消息）
-            if not content_parts:
-                content_parts.append("用户发起了对话")
+            # # 即使没有任何额外信息，也要创建气泡（用户至少输入了消息）
+            # if not content_parts:
+            #     content_parts.append("用户发起了对话")
 
-            final_content = "\n".join(content_parts)
+            # final_content = "\n".join(content_parts)
 
-            # 2.4 创建场景气泡记录（note_type=3）⭐ 必须创建
-            # 参考 create_or_update_note 方法的最佳实践
-            try:
-                # 内容完整性校验
-                has_content = final_content is not None and len(final_content.strip()) > 0
-                has_images = image_url is not None and len(image_url.strip()) > 0
+            # # 2.4 创建场景气泡记录（note_type=3）⭐ 必须创建
+            # # 参考 create_or_update_note 方法的最佳实践
+            # try:
+            #     # 内容完整性校验
+            #     has_content = final_content is not None and len(final_content.strip()) > 0
+            #     has_images = image_url is not None and len(image_url.strip()) > 0
 
-                if not has_content and not has_images:
-                    logger.warning("内容与图片均为空，跳过创建气泡")
-                    session["is_first"] = False
-                    session["context_initialized"] = True
-                    return  # 跳过后续逻辑
+            #     if not has_content and not has_images:
+            #         logger.warning("内容与图片均为空，跳过创建气泡")
+            #         session["is_first"] = False
+            #         session["context_initialized"] = True
+            #         return  # 跳过后续逻辑
 
-                # 情感识别（如果有文本内容）
-                emotion = "平静"  # 默认情感
-                if has_content:
-                    try:
-                        from app.services.emotion_service import analyze_emotion
-                        emotion = analyze_emotion(final_content)
-                        logger.info(f"情感识别结果: {emotion}")
-                    except ImportError:
-                        logger.warning("情感分析模块未导入，使用默认情感值")
-                    except Exception as e:
-                        logger.error(f"情感识别失败，使用默认值: {e}")
+            #     # 情感识别（如果有文本内容）
+            #     emotion = "平静"  # 默认情感
+            #     if has_content:
+            #         try:
+            #             from app.services.emotion_service import analyze_emotion
+            #             emotion = analyze_emotion(final_content)
+            #             logger.info(f"情感识别结果: {emotion}")
+            #         except ImportError:
+            #             logger.warning("情感分析模块未导入，使用默认情感值")
+            #         except Exception as e:
+            #             logger.error(f"情感识别失败，使用默认值: {e}")
 
-                # 确定 note_type
-                note_type = 1 if has_images else 3  # 有图片为1(图文)，无图片为3(场景气泡)
+                # # 确定 note_type
+                # note_type = 1 if has_images else 3  # 有图片为1(图文)，无图片为3(场景气泡)
 
-                # 构建数据库记录
-                note_data = {
-                    "user_id": user_id,
-                    "note_type": note_type,
-                    "content": final_content if has_content else "",
-                    "image_urls": image_url if has_images else None,
-                    "gps_longitude": gps_longitude,
-                    "gps_latitude": gps_latitude,
-                    "status": 3,  # 私有
-                    "emotion": emotion
-                }
+                # # 构建数据库记录
+                # note_data = {
+                #     "user_id": user_id,
+                #     "note_type": note_type,
+                #     "content": final_content if has_content else "",
+                #     "image_urls": image_url if has_images else None,
+                #     "gps_longitude": gps_longitude,
+                #     "gps_latitude": gps_latitude,
+                #     "status": 3,  # 私有
+                #     "emotion": emotion
+                # }
 
-                # 创建气泡记录
-                bubble = await create_bubble_note(note_data)
+                # # 创建气泡记录
+                # bubble = await create_bubble_note(note_data)
 
-                if bubble:
-                    bubble_id = bubble.get("id")
-                    session_manager.set_bubble_id(session_id, bubble_id)
-                    logger.info(f"✓ 场景气泡记录创建成功: bubble_id={bubble_id}, note_type={note_type}, emotion={emotion}")
-                else:
-                    logger.error("✗ 场景气泡记录创建失败")
+                # if bubble:
+                #     bubble_id = bubble.get("id")
+                #     session_manager.set_bubble_id(session_id, bubble_id)
+                #     logger.info(f"✓ 场景气泡记录创建成功: bubble_id={bubble_id}, note_type={note_type}, emotion={emotion}")
+                # else:
+                #     logger.error("✗ 场景气泡记录创建失败")
 
-            except ValueError as e:
-                # 业务逻辑校验失败
-                logger.error(f"业务校验失败: {e}")
-            except Exception as e:
-                logger.error(f"✗ 场景气泡记录创建失败: {e}")
+            # except ValueError as e:
+            #     # 业务逻辑校验失败
+            #     logger.error(f"业务校验失败: {e}")
+            # except Exception as e:
+            #     logger.error(f"✗ 场景气泡记录创建失败: {e}")
 
             # 标记首次对话完成
             session["is_first"] = False
@@ -598,7 +599,9 @@ async def archive_conversation(
             user_id=user_id,
             ai_process_type=AI_PROCESS_TYPE_CHAT_SUMMARY,  # 5-对话总结
             ai_result=json.dumps(ai_result_json, ensure_ascii=False),
-            model_version=settings.MODEL_NAME
+            model_version=settings.MODEL_NAME,
+            gps_longitude=gps_longitude,
+            gps_latitude=gps_latitude
         )
 
         if record:

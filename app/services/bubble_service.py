@@ -76,31 +76,33 @@ class BubbleNoteService:
 
             # 2.1 图片上传 (如果有)
             image_urls_str = None
-            note_type = 2  # 默认为纯文本
+            note_type = data.note_type  # 默认为纯文本
+            print("go_note_type", note_type)
 
-            if has_images:
-                try:
-                    # 并发上传所有图片到 OSS
-                    uploaded_urls = await oss_storage.upload_images_batch(
-                        images_data,
-                        data.user_id
-                    )
+            if note_type:
+                if has_images:
+                    try:
+                        # 并发上传所有图片到 OSS
+                        uploaded_urls = await oss_storage.upload_images_batch(
+                            images_data,
+                            data.user_id
+                        )
+                        note_type = 2
+                        # 将 URL 列表转换为逗号分隔的字符串
+                        image_urls_str = ",".join(uploaded_urls)
 
-                    # 将 URL 列表转换为逗号分隔的字符串
-                    image_urls_str = ",".join(uploaded_urls)
-                    note_type = 1  # 标记为图文笔记
+                        logger.info(f"图片上传成功: {len(uploaded_urls)} 张")
 
-                    logger.info(f"图片上传成功: {len(uploaded_urls)} 张")
-
-                except Exception as e:
-                    # 图片上传失败,触发异常熔断
-                    logger.error(f"图片上传失败,终止流程: {e}")
-                    raise Exception(f"图片上传失败: {e}")
-            else:
-                # 纯文本笔记,保留原有的 image_urls (如果是更新模式)
-                if is_update and existing_note.get("image_urls"):
-                    image_urls_str = existing_note["image_urls"]
-                    note_type = existing_note["note_type"]
+                    except Exception as e:
+                        # 图片上传失败,触发异常熔断
+                        logger.error(f"图片上传失败,终止流程: {e}")
+                        raise Exception(f"图片上传失败: {e}")
+                else:
+                    # 纯文本笔记,保留原有的 image_urls (如果是更新模式)
+                    if is_update and existing_note.get("image_urls"):
+                        note_type = 1
+                        image_urls_str = existing_note["image_urls"]
+                        note_type = existing_note["note_type"]
 
             # 2.2 情感识别 (如果有文本)
             emotion = "未知"  # 默认情感
