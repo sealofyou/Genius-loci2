@@ -2,8 +2,8 @@ FROM modelscope-registry.cn-beijing.cr.aliyuncs.com/modelscope-repo/python:3.10
 
 WORKDIR /home/user/app
 
-# 安装 Node.js 18.x
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+# 安装 Node.js 20.x
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
