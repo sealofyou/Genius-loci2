@@ -26,4 +26,5 @@ RUN npm install http-server --save-dev
 EXPOSE 7860
 
 # 启动命令（不是构建时运行）
-CMD ["npx", "http-server", "dist", "-p", "7860", "--host", "0.0.0.0"]
+CMD ["python3", "-m", "http.server", "7860", "--directory", "dist"]
+# CMD ["npx", "http-server", "dist", "-p", "7860", "--host", "0.0.0.0"]
