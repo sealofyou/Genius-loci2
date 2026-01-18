@@ -16,6 +16,7 @@ RUN npm install
 
 # 构建前端项目
 RUN npm install serve
-RUN npx serve dist -s -p 7860
+RUN npm install serve --save-dev
+CMD ["npx", "--yes", "serve", "-s", "dist", "-p", "7860"]
 # 暴露端口
 EXPOSE 7860
