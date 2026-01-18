@@ -13,10 +13,9 @@ COPY ./front /home/user/app/front
 # 安装前端依赖
 WORKDIR /home/user/app/front
 RUN npm install
-RUN chmod +x /home/user/app/front/node_modules/.bin/vite
 
 # 构建前端项目
-RUN npm run dev
-
+RUN npm install serve
+RUN npx serve dist -s -p 7860
 # 暴露端口
 EXPOSE 7860
